@@ -1,4 +1,4 @@
-'use client'; // Add this line at the top
+'use client';
 
 import { Box, Button, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
@@ -13,25 +13,52 @@ export default function Home() {
   const [message, setMessage] = useState('');
 
   const sendMessage = async () => {
-    setMessage('');
+    if (!message.trim()) {
+      return; // Do nothing if the input is empty
+    }
+
+    // Add user message to the chat
     setMessages((messages) => [
       ...messages,
       { role: 'user', content: message },
-      { role: 'assistant', content: '' }, // Placeholder for assistant response
     ]);
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json', // Corrected typo
-      },
-      body: JSON.stringify([...messages, { role: 'user', content: message }]),
-    });
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([
+          ...messages,
+          { role: 'user', content: message },
+        ]),
+      });
 
-    // Process the response from the API
-    const assistantResponse = await response.json(); // Parse the JSON response
-    setMessages((messages) => [...messages, { role: 'assistant', content: assistantResponse.content }]); // Update messages with assistant response
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const assistantResponse = await response.json();
+      const assistantMessage = assistantResponse.content || 'Sorry, I couldn’t process your request.';
+      
+      // Add assistant's response to the chat
+      setMessages((messages) => [
+        ...messages,
+        { role: 'assistant', content: assistantMessage },
+      ]);
+
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages((messages) => [
+        ...messages,
+        { role: 'assistant', content: 'An error occurred while processing your request.' },
+      ]);
+    } finally {
+      setMessage(''); // Clear input after message is sent
+    }
   };
+
   return (
     <Box
       width="100vw"
@@ -85,6 +112,11 @@ export default function Home() {
             fullWidth
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                sendMessage(); // Send message on Enter key press
+              }
+            }}
           />
           <Button variant="contained" onClick={sendMessage}>
             Send
@@ -92,5 +124,5 @@ export default function Home() {
         </Stack>
       </Stack>
     </Box>
-  )
+  );
 }
