@@ -18,7 +18,7 @@ export async function POST(req) {
       body: JSON.stringify({
         model: 'meta-llama/llama-3.1-8b-instruct:free',
         prompt: `${systemPrompt}\n${userMessages.join('\n')}`,
-        max_tokens: 512,  // Adjusting token limit
+        max_tokens: 512,
         temperature: 0.7,
       }),
     });
@@ -28,18 +28,24 @@ export async function POST(req) {
     }
 
     const resultText = await response.text();
-    console.log('API Response:', resultText);
+    console.log('Raw API Response:', resultText);
 
-    const trimmedText = resultText.replace(/^\s+|\s+$/g, '').replace(/\n\s*\n/g, '\n');
-    let result;
+    // Clean the response text by removing excess whitespace and new lines
+    const cleanedText = resultText.trim().replace(/\n{2,}/g, '\n').replace(/^\s+|\s+$/g, '');
+
+    let jsonResponse;
     try {
-      result = JSON.parse(trimmedText);
-    } catch (e) {
-      console.error('Failed to parse JSON:', trimmedText);
-      throw new Error('Received non-JSON response');
+      jsonResponse = JSON.parse(cleanedText);
+    } catch (error) {
+      console.error('Failed to parse JSON:', cleanedText);
+      throw new Error('The API response is not in a valid JSON format.');
     }
 
-    const content = result.choices?.[0]?.text.split('\n\n')[0] || 'Sorry, the response was not meaningful or too long.';
+    console.log('Parsed JSON:', jsonResponse);
+
+    // Extracting meaningful content and sanitizing it
+    const choiceText = jsonResponse.choices?.[0]?.text || '';
+    const content = choiceText.replace(/vscode|An error occurred while processing your request./gi, '').trim();
 
     const stream = new ReadableStream({
       start(controller) {
